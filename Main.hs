@@ -31,11 +31,12 @@ import           Control.Monad          ((>=>))
 import           Data.Aeson             ((.:))
 import           Data.Data              (Data)
 import           Data.Foldable          (traverse_)
+import           Data.Functor           (($>))
 import           Data.Text              (Text)
 import           System.Console.CmdArgs ((&=))
 
 
-data Flags = Flags
+newtype Flags = Flags
     { docs :: Maybe FilePath
     } deriving Data
 
@@ -173,8 +174,7 @@ data ElmRepl = ElmRepl
 
 
 withElmRepl :: (ElmRepl -> IO a) -> IO a
-withElmRepl = do
-    Exception.bracket runElmRepl closeElmRepl
+withElmRepl = Exception.bracket runElmRepl closeElmRepl
 
 
 runElmRepl :: IO ElmRepl
@@ -221,7 +221,7 @@ getOutput repl = fmap reverse $ do
     -- straight back to a prompt. We need to handle that case here before we
     -- enter `go`.
     char <- IO.hGetChar (stdout repl)
-    if char == prompt then IO.hGetChar (stdout repl) *> pure "" else go [char]
+    if char == prompt then IO.hGetChar (stdout repl) $> "" else go [char]
   where
     prompt :: Char
     prompt = '>'
@@ -235,7 +235,7 @@ getOutput repl = fmap reverse $ do
                 if char' == prompt
                     -- There is a space immediately after the prompt, so we
                     -- consume it and throw it away
-                    then IO.hGetChar (stdout repl) *> pure accum
+                    then IO.hGetChar (stdout repl) $> accum
                     else go (char' : char : accum)
             _ -> go (char : accum)
 
@@ -246,12 +246,11 @@ removeANSICodes str = case Parse.parseOnly parser (filterEscapes str) of
     Right scrubbed -> scrubbed
   where
     parser :: Parse.Parser Text
-    parser =
-        Text.concat
-            <$> (Parse.many' (ansiCode' <|> fmap Text.singleton Parse.anyChar))
+    parser = Text.concat
+        <$> Parse.many' (ansiCode' <|> fmap Text.singleton Parse.anyChar)
 
     ansiCode' :: Parse.Parser Text
-    ansiCode' = "" <$ ansiCode
+    ansiCode' = ansiCode $> ""
 
     ansiCode :: Parse.Parser ()
     ansiCode = do
