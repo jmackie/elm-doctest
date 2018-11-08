@@ -1,0 +1,3 @@
+" NOTE: brittany complains about the .ghc.environment.* file for some reason...
+autocmd Filetype haskell setlocal makeprg=cabal\ new-build\ &&\ rm\ -f\ .ghc.environment.*
+nmap <c-b> :make<cr>
