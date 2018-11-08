@@ -36,7 +36,7 @@ import           Data.Text              (Text)
 import           System.Console.CmdArgs ((&=))
 
 
-newtype Flags = Flags
+data Flags = Flags
     { docs :: Maybe FilePath
     } deriving Data
 
@@ -203,10 +203,10 @@ eval :: Text -> ElmRepl -> IO (Either Text Text)
 eval expr repl = do
     putExpr (Text.unpack expr) repl
     output   <- getOutput repl
-    isStderr <- IO.hReady (stderr repl)
-    if isStderr
-        then Left . Text.pack <$> IO.hGetContents (stderr repl)
-        else Right . Text.pack <$> pure output
+    maybeErr <- getError repl
+    case maybeErr of
+        Nothing  -> pure . Right . Text.pack $ output
+        Just err -> pure . Left . Text.pack $ err
 
 
 putExpr :: String -> ElmRepl -> IO ()
@@ -238,6 +238,12 @@ getOutput repl = fmap reverse $ do
                     then IO.hGetChar (stdout repl) $> accum
                     else go (char' : char : accum)
             _ -> go (char : accum)
+
+
+getError :: ElmRepl -> IO (Maybe String)
+getError repl = do
+    errored <- IO.hReady (stderr repl)
+    if errored then Just <$> IO.hGetContents (stderr repl) else pure Nothing
 
 
 removeANSICodes :: Text -> Text
