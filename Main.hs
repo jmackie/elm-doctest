@@ -6,7 +6,8 @@
 {-
 TODO:
     - Run tests concurrently
-    - Handle errors coming out of the repl (syntax and such)
+    - Run `elm make --docs $(mktemp --suffix .json)` if flag isn't provided
+    - Remove undefined branches
 -}
 module Main (main) where
 
@@ -34,14 +35,14 @@ import           Data.Text              (Text)
 import           System.Console.CmdArgs ((&=))
 
 
-data Args = Args
+data Flags = Flags
     { docs :: Maybe FilePath
     } deriving Data
 
 
-argSpec :: Args
-argSpec
-    = Args
+flagSpec :: Flags
+flagSpec =
+    Flags
             (  CmdArgs.def
             &= CmdArgs.help "Elm documentation (json)"
             &= CmdArgs.typFile
@@ -51,8 +52,8 @@ argSpec
 
 main :: IO ()
 main = do
-    args             <- CmdArgs.cmdArgs argSpec
-    moduleDocs       <- getModuleDocs args
+    flags            <- CmdArgs.cmdArgs flagSpec
+    moduleDocs       <- getModuleDocs flags
     (errors, passes) <- Either.partitionEithers
         <$> traverse check (extractDocTests moduleDocs)
 
@@ -76,9 +77,9 @@ main = do
         putChar '\n'
 
 
-getModuleDocs :: Args -> IO [ElmModuleDoc]
-getModuleDocs Args { docs = Nothing } = undefined
-getModuleDocs Args { docs = Just path } =
+getModuleDocs :: Flags -> IO [ElmModuleDoc]
+getModuleDocs Flags { docs = Nothing } = undefined
+getModuleDocs Flags { docs = Just path } =
     Aeson.eitherDecodeFileStrict path >>= either undefined pure
 
 
@@ -200,7 +201,6 @@ closeElmRepl repl = do
 
 eval :: Text -> ElmRepl -> IO (Either Text Text)
 eval expr repl = do
-    -- TODO: How can we catch sterr here?
     putExpr (Text.unpack expr) repl
     output   <- getOutput repl
     isStderr <- IO.hReady (stderr repl)
