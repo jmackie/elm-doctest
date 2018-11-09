@@ -1,8 +1,7 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE InstanceSigs       #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-
 TODO:
     - Run tests concurrently
@@ -13,56 +12,44 @@ module Main (main) where
 
 import           Prelude
 
-import qualified Control.Exception      as Exception
-import qualified Data.Aeson             as Aeson
-import qualified Data.Aeson.Types       as Aeson (Parser)
-import qualified Data.Attoparsec.Text   as Parse
-import qualified Data.Either            as Either
-import qualified Data.List              as List
-import qualified Data.Maybe             as Maybe
-import qualified Data.Text              as Text
-import qualified System.Console.ANSI    as ANSI
-import qualified System.Console.CmdArgs as CmdArgs
-import qualified System.IO              as IO
-import qualified System.Process         as Process
+import qualified Control.Exception    as Exception
+import qualified Data.Aeson           as Aeson
+import qualified Data.Aeson.Types     as Aeson (Parser)
+import qualified Data.Attoparsec.Text as Parse
+import qualified Data.ByteString      as ByteString
+import qualified Data.Either          as Either
+import qualified Data.List            as List
+import qualified Data.Maybe           as Maybe
+import qualified Data.Text            as Text
+import qualified System.Console.ANSI  as ANSI
+import qualified System.Directory     as Directory
+import qualified System.Exit          as Exit
+import qualified System.IO            as IO
+import qualified System.Process       as Process
 
-import           Control.Applicative    ((<|>))
-import           Control.Monad          ((>=>))
-import           Data.Aeson             ((.:))
-import           Data.Data              (Data)
-import           Data.Foldable          (traverse_)
-import           Data.Functor           (($>))
-import           Data.Text              (Text)
-import           System.Console.CmdArgs ((&=))
-
-
-data Flags = Flags
-    { docs :: Maybe FilePath
-    } deriving Data
-
-
-flagSpec :: Flags
-flagSpec =
-    Flags
-            (  CmdArgs.def
-            &= CmdArgs.help "Elm documentation (json)"
-            &= CmdArgs.typFile
-            )
-        &= CmdArgs.summary "elm-doctest"
+import           Control.Applicative  ((<|>))
+import           Control.Monad        ((>=>))
+import           Data.Aeson           ((.:))
+import           Data.Foldable        (traverse_)
+import           Data.Functor         (($>))
+import           Data.Text            (Text)
 
 
 main :: IO ()
 main = do
-    flags            <- CmdArgs.cmdArgs flagSpec
-    moduleDocs       <- getModuleDocs flags
-    (errors, passes) <- Either.partitionEithers
-        <$> traverse check (extractDocTests moduleDocs)
+    withModuleDocs
+        (\err -> printError err *> Exit.exitFailure)
+        (\moduleDocs -> do
+            (errors, passes) <- Either.partitionEithers
+                <$> traverse check (extractDocTests moduleDocs)
 
-    -- Report how we did
-    print . Pretty Green $ showText (length passes) <> " passes"
-    print . Pretty Red $ showText (length errors) <> " errors"
-    putChar '\n'
-    traverse_ printError errors
+            -- Report how we did
+            print . Pretty Green $ showText (length passes) <> " passes"
+            print . Pretty Red $ showText (length errors) <> " errors"
+            putChar '\n'
+            traverse_ printError errors
+            if length errors > 0 then Exit.exitFailure else Exit.exitSuccess
+        )
   where
     check :: DocTest -> IO (Either Error Feedback)
     check docTest = withElmRepl $ runDocTest docTest >=> pure . \case
@@ -78,10 +65,29 @@ main = do
         putChar '\n'
 
 
-getModuleDocs :: Flags -> IO [ElmModuleDoc]
-getModuleDocs Flags { docs = Nothing } = undefined
-getModuleDocs Flags { docs = Just path } =
-    Aeson.eitherDecodeFileStrict path >>= either undefined pure
+withModuleDocs :: (Error -> IO a) -> ([ElmModuleDoc] -> IO a) -> IO a
+withModuleDocs actionError actionOk =
+    withTemporaryFile "docs.json" $ \(docsPath, docsHandle) -> do
+        (_, _, _, processHandle) <- Process.createProcess
+            (Process.proc "elm" ["make", "--docs", docsPath])
+                { Process.std_out = Process.CreatePipe
+                , Process.std_err = Process.CreatePipe
+                }
+        Process.waitForProcess processHandle >>= \case
+            Exit.ExitFailure _ -> actionError (Error [Plain "shit"])
+            Exit.ExitSuccess   -> do
+                contents <- ByteString.hGetContents docsHandle
+                case Aeson.eitherDecodeStrict contents of
+                    Left  _          -> actionError (Error [Plain "shit"])
+                    Right moduleDocs -> actionOk moduleDocs
+
+
+withTemporaryFile :: String -> ((FilePath, IO.Handle) -> IO a) -> IO a
+withTemporaryFile template action = do
+    tmpDir <- Directory.getTemporaryDirectory
+    Exception.bracket (IO.openTempFile tmpDir template)
+                      (IO.hClose . snd)
+                      (action)
 
 
 feedbackOk :: DocTest -> Feedback
