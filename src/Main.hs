@@ -53,28 +53,29 @@ main = do
 
 
 runDocTests :: [DocTest] -> IO ([Error], [()])
-runDocTests docTests = Either.partitionEithers <$> traverse runDocTest docTests
+runDocTests docTests = Elm.withRepl
+    (\repl -> Either.partitionEithers <$> traverse (runAndReset repl) docTests)
+  where
+    runAndReset :: Elm.Repl -> DocTest -> IO (Either Error ())
+    runAndReset repl docTest = runDocTest repl docTest <* Elm.reset repl
 
 
-runDocTest :: DocTest -> IO (Either Error ())
-runDocTest docTest = do
-    readResult <- readElmModule (DocTest.docTestModule docTest)
-    case readResult of
+runDocTest :: Elm.Repl -> DocTest -> IO (Either Error ())
+runDocTest repl docTest =
+    readElmModule (DocTest.docTestModule docTest) >>= \case
         Left  err       -> pure (Left err)
-        Right elmModule -> Elm.withRepl $ \repl -> do
-            _ <- evalAll repl (initialImports (Elm.moduleImports elmModule))
+        Right elmModule -> do
+            _ <- evalAll (initialImports (Elm.moduleImports elmModule))
             processResult <$> DocTest.run docTest repl
   where
     processResult :: DocTest.Result -> Either Error ()
     processResult = \case
-        DocTest.AllGood               -> Right ()
+        DocTest.AllGood            -> Right ()
+        DocTest.OutputMismatch got -> Left (outputMismatchError docTest got)
+        DocTest.ReplError      err -> Left (replError docTest err)
 
-        DocTest.OutputMismatch got    -> Left (outputMismatchError docTest got)
-
-        DocTest.ReplError      stderr -> Left (replError docTest stderr)
-
-    evalAll :: Elm.Repl -> [Text] -> IO (Either Text [Text])
-    evalAll repl exprs = sequence <$> traverse (Elm.eval repl) exprs
+    evalAll :: [Text] -> IO (Either Text [Text])
+    evalAll exprs = sequence <$> traverse (Elm.eval repl) exprs
 
     initialImports :: [Elm.Import] -> [Text]
     initialImports moduleImports =

@@ -4,6 +4,7 @@
 module Language.Elm.Repl
     ( Repl
     , withRepl
+    , reset
     , Data.Interpreter.eval
     )
 where
@@ -59,6 +60,11 @@ closeRepl repl = do
     IO.hClose (stdin repl)
     _ <- Process.waitForProcess (processHandle repl)
     IO.hClose (stdout repl)
+
+
+-- | Reset the Repl. I'm pretty sure this won't fail...
+reset :: Repl -> IO ()
+reset repl = eval' repl ":reset" $> ()
 
 
 eval' :: Repl -> Text -> IO (Either Text Text)
