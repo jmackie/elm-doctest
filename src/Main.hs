@@ -30,7 +30,7 @@ main :: IO ()
 main = do
     -- TODO: check we're in an elm project etc
     -- TODO: run tests concurrently
-    (errors, passes) <- createDocs >>= testDocs
+    (errors, passes) <- runDocTests . extractDocTests =<< createDocs
     printPassCount (length passes)
     printErrorCount (length errors)
     putChar '\n'
@@ -43,10 +43,6 @@ main = do
             $   Elm.makeDocs
             >=> either (crashWith . makeDocsError) pure
 
-    testDocs :: Elm.Docs -> IO ([Error], [()])
-    testDocs docs =
-        Either.partitionEithers <$> traverse runDocTest (extractDocTests docs)
-
     printPassCount :: Int -> IO ()
     printPassCount n =
         print . Pretty.styled [Pretty.green] $ showText n <> " passes"
@@ -54,6 +50,10 @@ main = do
     printErrorCount :: Int -> IO ()
     printErrorCount n =
         print . Pretty.styled [Pretty.red] $ showText n <> " errors"
+
+
+runDocTests :: [DocTest] -> IO ([Error], [()])
+runDocTests docTests = Either.partitionEithers <$> traverse runDocTest docTests
 
 
 runDocTest :: DocTest -> IO (Either Error ())
@@ -109,6 +109,7 @@ makeDocsExitError _code = Error [Pretty.plain "error decoding docs.json"]
 
 makeDocsDecodingError :: String -> Error
 makeDocsDecodingError _why = Error [Pretty.plain "error decoding docs.json"]
+
 
 parseError :: Text -> Error
 parseError why = Error [Pretty.plain why]
