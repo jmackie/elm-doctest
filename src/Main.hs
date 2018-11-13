@@ -206,7 +206,7 @@ commentToDocTests docTestModule docTestValue comment = go
         $ \line -> if isCode line then Just (Text.strip line) else Nothing
 
     isCode :: Text -> Bool
-    isCode = Text.isPrefixOf "    "
+    isCode = ("    " `Text.isPrefixOf`)
 
     go :: [DocTest] -> [Text] -> [DocTest]
     go accum []       = accum
