@@ -29,13 +29,15 @@ import Text.Pretty (Pretty)
 main :: IO ()
 main = do
     -- TODO: check we're in an elm project etc
-    -- TODO: run tests concurrently
     (errors, passes) <- runDocTests . extractDocTests =<< createDocs
-    printPassCount (length passes)
-    printErrorCount (length errors)
-    putChar '\n'
-    traverse_ printError errors
-    if null errors then Exit.exitFailure else Exit.exitSuccess
+    if null errors
+        then print (Pretty.styled [Pretty.green] "All good!")
+        else do
+            printPassCount (length passes)
+            printErrorCount (length errors)
+            putChar '\n'
+            traverse_ printError errors
+            Exit.exitFailure
   where
     createDocs :: IO Elm.Docs
     createDocs =
@@ -66,7 +68,7 @@ runDocTest repl docTest =
         Left  err       -> pure (Left err)
         Right elmModule -> do
             _ <- evalAll (initialImports (Elm.moduleImports elmModule))
-            processResult <$> DocTest.run docTest repl
+            processResult <$> DocTest.runWith normalizeNewlines docTest repl
   where
     processResult :: DocTest.Result -> Either Error ()
     processResult = \case
@@ -221,6 +223,11 @@ commentToDocTests docTestModule docTestValue comment = go
         { DocTest.docTestInput  = Text.strip (DocTest.docTestInput docTest)
         , DocTest.docTestOutput = Text.strip (DocTest.docTestOutput docTest)
         }
+
+
+normalizeNewlines :: Text -> Text
+normalizeNewlines =
+    Text.intercalate " " . fmap Text.stripStart . Text.splitOn "\n"
 
 
 showText :: Show a => a -> Text

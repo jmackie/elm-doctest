@@ -12,6 +12,7 @@ module Test.DocTest
         , ReplError
         )
     , run
+    , runWith
     )
 where
 
@@ -36,13 +37,17 @@ data Result
 
 
 run :: Interpreter a => DocTest -> a -> IO Result
-run docTest interpreter = do
+run = runWith id
+
+
+runWith :: Interpreter a => (Text -> Text) -> DocTest -> a -> IO Result
+runWith prepare docTest interpreter = do
     result <- eval interpreter (docTestInput docTest)
     case result of
         Left  err    -> pure (ReplError err)
         Right output -> do
             let want, got :: Text
-                want = docTestOutput docTest
-                got  = output
+                want = prepare (docTestOutput docTest)
+                got  = prepare (output)
 
-            if want /= got then pure (OutputMismatch got) else pure AllGood
+            if want == got then pure AllGood else pure (OutputMismatch got)
