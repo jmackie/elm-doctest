@@ -10,6 +10,7 @@ DIST=$(mktemp -d)
 # Name of the release tarball
 TARBALL=${TARBALL:-release.tar.gz}
 
-nix-build -o "$BUILD"
-cp --recursive --dereference --no-preserve=ownership "$BUILD" "$DIST"
-tar -zcvf "$TARBALL" "$DIST"
+nix-build -o "$BUILD" default.nix
+cp --verbose --no-preserve=ownership,mode "$BUILD/bin/elm-doctest" "$DIST"
+chmod 0755 "$DIST/elm-doctest"
+tar zcvfC "$TARBALL" "$DIST" elm-doctest

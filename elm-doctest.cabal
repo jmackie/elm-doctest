@@ -1,5 +1,5 @@
 name: elm-doctest
-version: 0.1.0.0
+version: 0.1.0
 synopsis: Doctest runner for Elm
 license: MIT
 license-file: LICENSE

@@ -17,7 +17,7 @@ let
         }:
         mkDerivation {
             pname = "elm-doctest";
-            version = "0.1.0.0";
+            version = "0.1.0";
             homepage = "https://github.com/jmackie/elm-doctest/";
             description = "Doctest runner for Elm";
             license = stdenv.lib.licenses.mit;
@@ -36,11 +36,10 @@ let
                 stdenv
                 text
             ];
-
-            # Static linking
             enableSharedExecutables = false;
             enableSharedLibraries = false;
             configureFlags = [
+                "-frelease"
                 "--ghc-option=-optl=-static"
                 "--ghc-option=-optl=-pthread"
                 "--ghc-option=-optl=-L${pkgs.gmp6.override { withStatic = true; }}/lib"
