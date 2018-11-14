@@ -7,6 +7,11 @@ cache:
     directories:
         - /nix/store
 
+notifications:
+    email:
+        on_success: never
+        on_failure: always
+
 # Releases
 before_deploy:
     - ./travis/release.sh
