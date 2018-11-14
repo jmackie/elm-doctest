@@ -1,7 +1,13 @@
 language: nix
 nix: 2.0.4
-script: travis/build.sh
+script:
+    - nix-shell -p ghc -p cabal-install --run 'cabal new-update && cabal new-build'
 
+cache:
+    directories:
+        - /nix/store
+
+# Releases
 before_deploy:
     - ./travis/release.sh
 deploy:
