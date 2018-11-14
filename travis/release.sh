@@ -10,7 +10,9 @@ DIST=$(mktemp -d)
 # Name of the release tarball
 TARBALL=${TARBALL:-release.tar.gz}
 
-ls -la
+# Need to get rid of any lingering environment file(s)
+rm .ghc.environment.*
+
 nix-build -o "$BUILD" default.nix
 cp --verbose --no-preserve=ownership,mode "$BUILD/bin/elm-doctest" "$DIST"
 chmod 0755 "$DIST/elm-doctest"
