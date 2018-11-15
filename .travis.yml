@@ -1,5 +1,4 @@
 language: nix
-nix: 2.0.4
 
 matrix:
     include:
@@ -14,11 +13,11 @@ install:
     - nix-env -i stack
 
 script:
-    - stack build
+    - stack --nix build
 
-#cache:
-#    directories:
-#        - /nix/store
+cache:
+    directories:
+        - /nix/
 
 before_deploy:
     - nix-build -o result release.nix
