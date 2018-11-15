@@ -1,6 +1,6 @@
-{ compiler ? "ghc844" }:
+{ static ? false, compiler ? "ghc844" }:
 let
     nixpkgs =
         import <nixpkgs> {};
 in
-nixpkgs.haskell.packages.${compiler}.callPackage ./default.nix { inherit nixpkgs; }
+nixpkgs.haskell.packages.${compiler}.callPackage ./default.nix { inherit nixpkgs; inherit static; }

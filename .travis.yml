@@ -7,8 +7,10 @@ matrix:
           env: OS_NAME=linux64
 
         - os: osx
-          osx_image: xcode9.2
           env: OS_NAME=macos
+          osx_image: xcode9.2
+          #          ^^^^^^^^
+          # NOTE later versions aren't playing nicely with Nix
 
 install:
     - nix-env -i stack
@@ -21,7 +23,16 @@ cache:
         - /nix/
 
 before_deploy:
-    - nix-build -o result release.nix
+    - |
+        case "$TRAVIS_OS_NAME" in
+          "linux64")
+              nix-build -o result --arg static true release.nix
+          "macos")
+              nix-build -o result --arg static false release.nix
+          *)
+              echo "Unknown OS_NAME: $TRAVIS_OS_NAME";
+              exit 1;;
+        esac
     - cp --verbose --recursive --dereference --no-preserve=ownership,mode result release
     - find release/bin -type f -exec chmod 0755 {} \;
     - cp LICENSE README.md release
