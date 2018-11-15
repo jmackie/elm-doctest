@@ -1,11 +1,12 @@
 language: nix
 nix: 2.0.4
 script:
-    - nix-shell -p ghc -p cabal-install --run 'cabal new-update && cabal new-build'
+    - nix-env -i stack
+    - stack build
 
-cache:
-    directories:
-        - /nix/store
+#cache:
+#    directories:
+#        - /nix/store
 
 notifications:
     email:
@@ -14,7 +15,12 @@ notifications:
 
 # Releases
 before_deploy:
-    - ./travis/release.sh
+    - nix-build -o result release.nix
+    - cp --verbose --recursive --dereference --no-preserve=ownership,mode result release
+    - find release/bin -type f -exec chmod 0755 {} \;
+    - cp LICENSE README.md release
+    - tar zcvf release.tar.gz release
+
 deploy:
     provider: releases
     api_key:
