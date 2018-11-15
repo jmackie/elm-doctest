@@ -1,31 +1,45 @@
 language: nix
 nix: 2.0.4
-script:
+
+matrix:
+    include:
+        - os: linux
+          dist: trusty
+          env: OS_NAME=linux64
+
+        - os: osx
+          env: OS_NAME=macos
+
+install:
     - nix-env -i stack
+
+script:
     - stack build
 
 #cache:
 #    directories:
 #        - /nix/store
 
-notifications:
-    email:
-        on_success: never
-        on_failure: always
-
-# Releases
 before_deploy:
     - nix-build -o result release.nix
     - cp --verbose --recursive --dereference --no-preserve=ownership,mode result release
     - find release/bin -type f -exec chmod 0755 {} \;
     - cp LICENSE README.md release
-    - tar zcvf release.tar.gz release
+    - tar zcvf $OS_NAME.tar.gz release
+    - shasum $OS_NAME.tar.gz > $OS_NAME.sha
 
 deploy:
     provider: releases
     api_key:
         secure: "sDHh60uAaOeHuP3BdujudZmEfMiYo2v4ur3E1BetFyFhY/DsDSXBFWyJiIrJAYoVg0BAFFFLbg6kNGAcy71A4g2eGlP1w7OTfnqmqKifc3oAaPZLZgzGUpNtHZPcRhrH4ZHJkcvk7ZoLTd+Fsmf1olSl9DYu0auUHxWOTfD79DmfdIXzYSTwH+n87oSjYTZeV4S+dTGE+IXAfch5VoQvBpSs8MfgtvyJdr58/kE9fxKcX8UUIcPcy42plJNRjaQhV2mT8FJ+pPt8mBpCx1x/P4MWMRYLdyWivWZmflaDyBr2W3VETA8q+Rkvyc85BhLZFL4vnqzHUwz+k+k9lSEMzaE/mdzzUAE83DuuuGJoKgaRwQkyO8aQURUJHp65glTrF9Pv2uaZ3rvrmZ6oThk+Pi6hSJvPItiF0MqY7u8jaXo3//HGcZ5FCR/Ngd8+5TgURU9LwSSRXPUFubNvGcfADz5qmTXzXuozBk3Hd1LRR3Urpukx7+LIMs5rirNoz9rrUa1GwfINKzBK3nG2hc6isS2OhFcig2C/ZIemUG2X/tO+UjSaxjxI4FYpBcrXHVfNsWm0v1rLh7tqT1atYOfPpci1L/BHPx8qTf0DWELvGoR7oIs+TCRci5lcc5gApWsptIZSNeTuPQKJOwz9jRDNIV2HueQi4mXyS1WC1w75qYM="
-    file: release.tar.gz
+    file:
+        - $OS_NAME.tar.gz
+        - $OS_NAME.sha
     skip_cleanup: true
     on:
         tags: true
+
+notifications:
+    email:
+        on_success: never
+        on_failure: always
