@@ -24,15 +24,17 @@ cache:
 
 before_deploy:
     - |
-        case "$TRAVIS_OS_NAME" in
-          "linux64")
-              nix-build -o result --arg static true release.nix
-          "macos")
-              nix-build -o result --arg static false release.nix
-          *)
-              echo "Unknown OS_NAME: $TRAVIS_OS_NAME";
-              exit 1;;
+        case "$OS_NAME" in
+            "linux64")
+                nix-build -o result --arg static true release.nix;;
+            "macos")
+                nix-build -o result --arg static false release.nix;;
+            *)
+                echo "Unknown OS_NAME: $TRAVIS_OS_NAME";
+                exit 1;;
         esac
+
+    # Make the tarball
     - cp --verbose --recursive --dereference --no-preserve=ownership,mode result release
     - find release/bin -type f -exec chmod 0755 {} \;
     - cp LICENSE README.md release
