@@ -1,5 +1,6 @@
 { nixpkgs
 , static
+
 # Haskell-specific stuff
 , mkDerivation
 , aeson

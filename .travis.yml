@@ -1,53 +1,63 @@
-language: nix
+language: c
+dist: trusty
+sudo: required
 
 matrix:
     include:
         - os: linux
           dist: trusty
+          sudo: required
           env: OS_NAME=linux64
 
         - os: osx
           env: OS_NAME=macos
-          osx_image: xcode9.2
-          #          ^^^^^^^^
-          # NOTE later versions aren't playing nicely with Nix
 
-install:
-    - nix-env -i stack
-
-script:
-    - stack --nix build
+addons:
+    apt:
+        packages:
+            - libgmp-dev
 
 cache:
     directories:
-        - /nix/
+        - $HOME/.local/bin
+        - $HOME/.stack
+
+install:
+    - | # Install stack
+        if test ! -f "$HOME/.local/bin/stack"
+        then
+            URL="https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64"
+            curl --location "$URL" > stack.tar.gz
+            gunzip stack.tar.gz
+            tar -x -f stack.tar --strip-components 1
+            mkdir -p "$HOME/.local/bin"
+            mv stack "$HOME/.local/bin/"
+        fi
+    - | # Install timeout
+        if [ "$TRAVIS_OS_NAME" == "osx" ]
+        then
+            if ! which gtimeout >/dev/null
+            then
+                brew update
+                brew install coreutils
+            fi
+            export TIMEOUT=gtimeout
+        else
+            export TIMEOUT=timeout
+        fi
+
+script:
+    - ci/build.sh
 
 before_deploy:
-    - |
-        case "$OS_NAME" in
-            "linux64")
-                nix-build -o result --arg static true release.nix;;
-            "macos")
-                nix-build -o result --arg static false release.nix;;
-            *)
-                echo "Unknown OS_NAME: $TRAVIS_OS_NAME";
-                exit 1;;
-        esac
-
-    # Make the tarball
-    - cp --verbose --recursive --dereference --no-preserve=ownership,mode result release
-    - find release/bin -type f -exec chmod 0755 {} \;
-    - cp LICENSE README.md release
-    - tar zcvf $OS_NAME.tar.gz release
-    - shasum $OS_NAME.tar.gz > $OS_NAME.sha
+    - ci/bundle.sh $OS_NAME
 
 deploy:
     provider: releases
-    api_key:
-        secure: "sDHh60uAaOeHuP3BdujudZmEfMiYo2v4ur3E1BetFyFhY/DsDSXBFWyJiIrJAYoVg0BAFFFLbg6kNGAcy71A4g2eGlP1w7OTfnqmqKifc3oAaPZLZgzGUpNtHZPcRhrH4ZHJkcvk7ZoLTd+Fsmf1olSl9DYu0auUHxWOTfD79DmfdIXzYSTwH+n87oSjYTZeV4S+dTGE+IXAfch5VoQvBpSs8MfgtvyJdr58/kE9fxKcX8UUIcPcy42plJNRjaQhV2mT8FJ+pPt8mBpCx1x/P4MWMRYLdyWivWZmflaDyBr2W3VETA8q+Rkvyc85BhLZFL4vnqzHUwz+k+k9lSEMzaE/mdzzUAE83DuuuGJoKgaRwQkyO8aQURUJHp65glTrF9Pv2uaZ3rvrmZ6oThk+Pi6hSJvPItiF0MqY7u8jaXo3//HGcZ5FCR/Ngd8+5TgURU9LwSSRXPUFubNvGcfADz5qmTXzXuozBk3Hd1LRR3Urpukx7+LIMs5rirNoz9rrUa1GwfINKzBK3nG2hc6isS2OhFcig2C/ZIemUG2X/tO+UjSaxjxI4FYpBcrXHVfNsWm0v1rLh7tqT1atYOfPpci1L/BHPx8qTf0DWELvGoR7oIs+TCRci5lcc5gApWsptIZSNeTuPQKJOwz9jRDNIV2HueQi4mXyS1WC1w75qYM="
+    api_key: $RELEASE_KEY
     file:
-        - $OS_NAME.tar.gz
-        - $OS_NAME.sha
+        - bundle/$OS_NAME.tar.gz
+        - bundle/$OS_NAME.sha
     skip_cleanup: true
     on:
         tags: true
