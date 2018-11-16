@@ -6,7 +6,7 @@ STACK="stack --no-terminal --jobs=1"
 
 # Install dependencies, aborting if it takes too long
 ret=0
-$TIMEOUT 40m "$STACK" --install-ghc build --only-dependencies --test --haddock || ret=$?
+$TIMEOUT 40m $STACK --install-ghc build --only-dependencies --test --haddock || ret=$?
 case "$ret" in
 0) # All good
     ;;
